@@ -11,6 +11,17 @@
 1. Copia la carpeta `dist\cotizador.exe` a: `C:\Program Files\Cotizador Automatico\`
 2. Crea un acceso directo manualmente en el Menú Inicio y Escritorio
 
+## Características del Programa
+
+### Icono Personalizado
+- **Diseño**: Caracol azul y gris con espiral
+- **Tamaño**: Ampliado al doble para mejor visibilidad
+- **Formato**: Icono de alta calidad con múltiples resoluciones (16x16 hasta 256x256)
+
+### Archivo de Tasas Guardadas
+- **Ubicación**: `c:\PROGRAMAS CRISTIAN\COTIZADOR AUTOMATICO\tasas_guardadas.json`
+- **Funcionalidad**: Las tasas se guardan automáticamente en esta carpeta
+
 ## Ubicación de los Archivos
 
 ### Programa Instalado
@@ -53,5 +64,10 @@
 - Verifica que la carpeta `c:\PROGRAMAS CRISTIAN\COTIZADOR AUTOMATICO\` exista
 - Verifica permisos de escritura en esa carpeta
 
+### El icono no se actualiza
+- Presiona F5 en el Explorador de Archivos
+- O reinicia el Explorador de Windows
+
 ## Versión
 **v0.1.0** - Cotizador de Equipos de Importacion
+**Última actualización**: Icono ampliado al doble de tamaño
