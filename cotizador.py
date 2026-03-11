@@ -14,6 +14,8 @@ DEFAULTS = {
     "high_margin": "50",
     "tariff": "10",
     "vat": "19",
+    "local_margin": "30",
+    "local_vat": "19",
 }
 
 
@@ -29,21 +31,52 @@ def to_float(raw_value: str, field_name: str) -> float:
 
 
 def calculate_values(data: dict) -> dict:
-    """Apply the requested business rules and return all result values."""
+    """Perform import calculations.
+
+    The expected keys in `data` are documented in the unit tests but generally
+    include:
+        - product_cost, freight_cost        (foreign currency amounts)
+        - currency                          ("USD" or "EUR")
+        - usd_rate, eur_rate                (conversion rates to COP)
+        - threshold                         (foreign‑currency threshold for margins)
+        - low_margin, high_margin           (fractions: 0.3 for 30% etc.)
+        - tariff_percent, vat_percent       (fractions)
+
+    The function returns a dictionary with the following values:
+        total_cost     (sum of product+freight, still in foreign currency)
+        cost_cop       (converted total cost in COP)
+        margin         (chosen margin fraction)
+        profit         (COP profit)
+        base_price     (cost_cop + profit)
+        tariff         (base_price * tariff_percent)
+        subtotal       (base_price + tariff)
+        vat            (subtotal * vat_percent)
+        final_price    (subtotal + vat)
+    """
+
     total_cost = data["product_cost"] + data["freight_cost"]
 
-    if data["currency"] == "USD":
-        cost_cop = total_cost * data["usd_rate"]
-    else:
-        cost_cop = total_cost * data["eur_rate"]
+    # currency conversion rate: USD, EUR or COP (COP just uses rate 1)
+    cur = data.get("currency", "USD")
+    if cur == "USD":
+        rate = data["usd_rate"]
+    elif cur == "EUR":
+        rate = data["eur_rate"]
+    else:  # COP or unknown
+        rate = 1.0
+    cost_cop = total_cost * rate
 
-    margin = data["low_margin"] if total_cost < data["threshold"] else data["high_margin"]
+    # choose margin based on threshold (in foreign currency)
+    if total_cost > data["threshold"]:
+        margin = data["high_margin"]
+    else:
+        margin = data["low_margin"]
 
     profit = cost_cop * margin
     base_price = cost_cop + profit
-    tariff = cost_cop * data["tariff_percent"]
+    tariff = base_price * data.get("tariff_percent", 0)
     subtotal = base_price + tariff
-    vat = subtotal * data["vat_percent"]
+    vat = subtotal * data.get("vat_percent", 0)
     final_price = subtotal + vat
 
     return {
@@ -54,6 +87,28 @@ def calculate_values(data: dict) -> dict:
         "base_price": base_price,
         "tariff": tariff,
         "subtotal": subtotal,
+        "vat": vat,
+        "final_price": final_price,
+    }
+
+
+def calculate_local_values(data: dict) -> dict:
+    """Calculate values for local quotes (only margin and VAT)."""
+    total_cost = data["local_cost"]
+    margin = data["local_margin"]
+    profit = total_cost * margin
+    base_price = total_cost + profit
+    vat = base_price * data["local_vat"]
+    final_price = base_price + vat
+
+    return {
+        "total_cost": total_cost,
+        "cost_cop": "N/A",
+        "margin": margin,
+        "profit": profit,
+        "base_price": base_price,
+        "tariff": "N/A",
+        "subtotal": "N/A",
         "vat": vat,
         "final_price": final_price,
     }
@@ -74,6 +129,7 @@ class App(ctk.CTk):
 
         self.currency_var = ctk.StringVar(value="USD")
         self.origin_var = ctk.StringVar(value="China")
+        self.quote_type_var = ctk.StringVar(value="Importacion")
         self.entries = {}
         self.result_labels = {}
 
@@ -96,6 +152,7 @@ class App(ctk.CTk):
 
         # store a reference so that sub-builders know where to place their widgets
         self._current_parent = container
+        self._build_quote_type_section()
         self._build_purchase_section()
         self._build_config_section()
         self._build_results_section()
@@ -112,15 +169,17 @@ class App(ctk.CTk):
     def _build_purchase_section(self):
         parent = getattr(self, '_current_parent', self)
         frame = ctk.CTkFrame(parent, corner_radius=10)
-        frame.grid(row=1, column=0, padx=20, pady=8, sticky="ew")
+        frame.grid(row=2, column=0, padx=20, pady=8, sticky="ew")
         frame.grid_columnconfigure((0, 1), weight=1)
 
         ctk.CTkLabel(frame, text="1) Datos de Compra", font=ctk.CTkFont(size=18, weight="bold")).grid(
             row=0, column=0, columnspan=2, padx=14, pady=(12, 8), sticky="w"
         )
 
-        self._add_option(frame, "Moneda", self.currency_var, ["USD", "EUR"], 1, 0)
-        self._add_option(frame, "Origen", self.origin_var, ["China", "Europa", "USA", "Latinoamerica", "Otro"], 1, 1)
+        # currency now includes COP for local quotes
+        self._add_option(frame, "Moneda", self.currency_var, ["USD", "EUR", "COP"], 1, 0)
+        # allow a "Local" origin to signal a domestic COP quote
+        self._add_option(frame, "Origen", self.origin_var, ["China", "Europa", "USA", "Latinoamerica", "Otro", "Local"], 1, 1)
 
         self._add_entry(frame, "product_cost", "Costo del producto (USD o EUR)", 2, 0)
         self._add_entry(frame, "freight_cost", "Costo de flete (USD o EUR)", 2, 1)
@@ -130,7 +189,7 @@ class App(ctk.CTk):
     def _build_config_section(self):
         parent = getattr(self, '_current_parent', self)
         frame = ctk.CTkFrame(parent, corner_radius=10)
-        frame.grid(row=2, column=0, padx=20, pady=8, sticky="ew")
+        frame.grid(row=3, column=0, padx=20, pady=8, sticky="ew")
         frame.grid_columnconfigure((0, 1, 2), weight=1)
 
         ctk.CTkLabel(frame, text="2) Configuracion (Editable)", font=ctk.CTkFont(size=18, weight="bold")).grid(
@@ -142,11 +201,13 @@ class App(ctk.CTk):
         self._add_entry(frame, "high_margin", "Margen alto (%)", 1, 2, DEFAULTS["high_margin"])
         self._add_entry(frame, "tariff", "Arancel importacion (%)", 2, 0, DEFAULTS["tariff"])
         self._add_entry(frame, "vat", "IVA (%)", 2, 1, DEFAULTS["vat"])
+        self._add_entry(frame, "local_margin", "Margen local (%)", 3, 0, DEFAULTS["local_margin"])
+        self._add_entry(frame, "local_vat", "IVA local (%)", 3, 1, DEFAULTS["local_vat"])
 
     def _build_results_section(self):
         parent = getattr(self, '_current_parent', self)
         frame = ctk.CTkFrame(parent, corner_radius=10)
-        frame.grid(row=3, column=0, padx=20, pady=8, sticky="ew")
+        frame.grid(row=4, column=0, padx=20, pady=8, sticky="ew")
         frame.grid_columnconfigure((0, 1), weight=1)
 
         ctk.CTkLabel(frame, text="3) Resultados", font=ctk.CTkFont(size=18, weight="bold")).grid(
@@ -264,9 +325,12 @@ class App(ctk.CTk):
         if values["currency"] == "USD":
             if values["usd_rate"] <= 0:
                 raise ValueError("La tasa USD debe ser mayor a 0.")
-        else:
+        elif values["currency"] == "EUR":
             if values["eur_rate"] <= 0:
                 raise ValueError("La tasa EUR debe ser mayor a 0.")
+        else:
+            # COP does not require a rate; we'll treat rate as 1 later
+            values["usd_rate"] = values["eur_rate"] = 1.0
 
         if values["product_cost"] < 0 or values["freight_cost"] < 0:
             raise ValueError("Los costos no pueden ser negativos.")
@@ -274,53 +338,88 @@ class App(ctk.CTk):
         return values
 
     def _render_results(self, result):
-        # show total_cost with two decimals (foreign currency)
-        self.result_labels["total_cost"].configure(text=f"{result['total_cost']:,.2f}")
-        # COP fields tend to be large integers; drop unnecessary decimals
-        for key in ("cost_cop", "profit", "base_price", "tariff", "subtotal", "vat", "final_price"):
+        # Handle both import and local calculations
+        for key, label in self.result_labels.items():
             value = result[key]
-            # if the value is effectively an integer, format without decimals
-            if abs(value - round(value)) < 0.005:
-                text = f"COP {value:,.0f}"
+            if value == "N/A":
+                label.configure(text="N/A")
+            elif key == "margin":
+                if isinstance(value, str):
+                    label.configure(text="N/A")
+                else:
+                    label.configure(text=f"{value * 100:.2f}%")
+            elif key == "final_price":
+                if isinstance(value, str):
+                    label.configure(text="COP N/A")
+                else:
+                    # if the value is effectively an integer, format without decimals
+                    if abs(value - round(value)) < 0.005:
+                        text = f"COP {value:,.0f}"
+                    else:
+                        text = f"COP {value:,.2f}"
+                    label.configure(text=text)
             else:
-                text = f"COP {value:,.2f}"
-            self.result_labels[key].configure(text=text)
-        self.result_labels["margin"].configure(text=f"{result['margin'] * 100:.2f}%")
+                if isinstance(value, str):
+                    label.configure(text="N/A")
+                else:
+                    # show total_cost with two decimals (foreign currency or local)
+                    if key == "total_cost":
+                        if isinstance(value, str):
+                            label.configure(text="N/A")
+                        else:
+                            label.configure(text=f"{value:,.2f}")
+                    else:
+                        # COP fields tend to be large integers; drop unnecessary decimals
+                        if abs(value - round(value)) < 0.005:
+                            text = f"COP {value:,.0f}"
+                        else:
+                            text = f"COP {value:,.2f}"
+                        label.configure(text=text)
 
     def on_calculate(self):
         try:
             form_data = self._read_form()
+            # if the user chose a local COP quote (currency COP and origin Local)
+            if form_data.get("currency") == "COP" and form_data.get("origin") == "Local":
+                # prompt for a single COP cost and perform local calculation
+                self._show_local_cost_dialog()
+                return
+
             result = calculate_values(form_data)
             self._render_results(result)
         except ValueError as error:
             messagebox.showerror("Error de validacion", str(error))
 
-    def on_clear(self):
-        for key in ["product_cost", "freight_cost"]:
-            self.entries[key].delete(0, "end")
+    def _show_local_cost_dialog(self):
+        """Show dialog to input local cost in COP."""
+        dialog = ctk.CTkInputDialog(
+            text="Ingrese el costo total en pesos colombianos (COP):",
+            title="Costo Local"
+        )
+        cost_input = dialog.get_input()
 
-        # reload saved rates
-        self.entries["usd_rate"].delete(0, "end")
-        if self.saved_rates.get("usd_rate"):
-            self.entries["usd_rate"].insert(0, self.saved_rates["usd_rate"])
-        self.entries["eur_rate"].delete(0, "end")
-        if self.saved_rates.get("eur_rate"):
-            self.entries["eur_rate"].insert(0, self.saved_rates["eur_rate"])
+        if cost_input is not None and cost_input.strip():
+            try:
+                local_cost = to_float(cost_input, "Costo local")
+                if local_cost < 0:
+                    raise ValueError("El costo local no puede ser negativo.")
 
-        self.entries["threshold"].delete(0, "end")
-        self.entries["threshold"].insert(0, DEFAULTS["threshold"])
-        self.entries["low_margin"].delete(0, "end")
-        self.entries["low_margin"].insert(0, DEFAULTS["low_margin"])
-        self.entries["high_margin"].delete(0, "end")
-        self.entries["high_margin"].insert(0, DEFAULTS["high_margin"])
-        self.entries["tariff"].delete(0, "end")
-        self.entries["tariff"].insert(0, DEFAULTS["tariff"])
-        self.entries["vat"].delete(0, "end")
-        self.entries["vat"].insert(0, DEFAULTS["vat"])
+                # Get local configuration
+                local_margin = to_float(self.entries["local_margin"].get(), "Margen local") / 100
+                local_vat = to_float(self.entries["local_vat"].get(), "IVA local") / 100
 
-        self.currency_var.set("USD")
-        self.origin_var.set("China")
-        self._reset_results()
+                form_data = {
+                    "local_cost": local_cost,
+                    "local_margin": local_margin,
+                    "local_vat": local_vat,
+                }
+
+                result = calculate_local_values(form_data)
+                self._render_results(result)
+
+            except ValueError as error:
+                messagebox.showerror("Error de validacion", str(error))
+        # If user cancels dialog, do nothing
 
 
 if __name__ == "__main__":
