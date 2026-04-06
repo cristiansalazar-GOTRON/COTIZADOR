@@ -1,0 +1,10 @@
+{
+  "tipo": "importacion",
+  "valores": {
+    "precio": 200.0,
+    "flete": 30.0,
+    "moneda": "USD",
+    "peso": 4.0,
+    "flete_modo": "fijo"
+  }
+}

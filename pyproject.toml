@@ -1,10 +1,7 @@
 [project]
 name = "cotizador"
 version = "0.1.0"
-dependencies = [
-    "customtkinter",
-    "pillow>=12.1.1",
-]
+dependencies = []
 
 [build-system]
 requires = ["hatchling"]
@@ -12,5 +9,5 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
-    "pyinstaller",
+    "pytest",
 ]

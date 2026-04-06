@@ -1,0 +1,16 @@
+{
+  "tasa_usd": 4200.0,
+  "tasa_eur": 4500.0,
+  "arancel_importacion": 10.0,
+  "iva": 19.0,
+  "ganancia_importacion": 30.0,
+  "ganancia_local": 25.0,
+  "ganancia_reparacion": 20.0,
+  "flete_local": 12.0,
+  "flete_local_modo": "porcentaje",
+  "flete_reparacion": 8.0,
+  "recargo_valor_alto": 2000000.0,
+  "recargo_peso": 350000.0,
+  "umbral_usd": 2000.0,
+  "umbral_peso": 5.0
+}
