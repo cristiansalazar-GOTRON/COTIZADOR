@@ -32,6 +32,7 @@ def _validar_configuracion(configuracion: Configuracion) -> None:
             continue
         asegurar_no_negativo(valor, nombre)
     validar_modo_flete_local(configuracion.flete_local_modo)
+    validar_modo_flete_local(configuracion.flete_reparacion_modo)
 
 
 def cotizacion_importacion(
@@ -41,6 +42,7 @@ def cotizacion_importacion(
     asegurar_no_negativo(entrada.precio, "precio")
     asegurar_no_negativo(entrada.flete, "flete")
     asegurar_no_negativo(entrada.peso, "peso")
+    asegurar_no_negativo(entrada.ganancia_porcentaje, "ganancia_porcentaje")
     _validar_configuracion(configuracion)
 
     resultado = ResultadoCotizacion()
@@ -51,12 +53,10 @@ def cotizacion_importacion(
 
     if modo_flete_importacion == "porcentaje":
         valor_flete = aplicar_porcentaje(entrada.precio, entrada.flete)
-        descripcion_flete = f"Valor del flete ({entrada.flete:.2f}%)"
     else:
         valor_flete = entrada.flete
-        descripcion_flete = "Valor del flete"
 
-    resultado.agregar_paso(descripcion_flete, valor_flete, moneda_original)
+    resultado.agregar_paso("Calculo del flete", valor_flete, moneda_original)
 
     subtotal_moneda = entrada.precio + valor_flete
     resultado.agregar_paso("Subtotal en moneda original", subtotal_moneda, moneda_original)
@@ -67,10 +67,10 @@ def cotizacion_importacion(
         configuracion.tasa_usd,
         configuracion.tasa_eur,
     )
-    resultado.agregar_paso("Subtotal convertido a COP", subtotal_cop, "COP")
+    resultado.agregar_paso("Conversion a COP", subtotal_cop, "COP")
 
-    valor_ganancia = aplicar_porcentaje(subtotal_cop, configuracion.ganancia_importacion)
-    resultado.agregar_paso("Valor de la ganancia en COP", valor_ganancia, "COP")
+    valor_ganancia = aplicar_porcentaje(subtotal_cop, entrada.ganancia_porcentaje)
+    resultado.agregar_paso("Calculo de ganancia en COP", valor_ganancia, "COP")
 
     total = subtotal_cop + valor_ganancia
 
@@ -83,25 +83,25 @@ def cotizacion_importacion(
     if valor_en_usd > configuracion.umbral_usd:
         resultado.agregar_paso("Recargo por valor alto", configuracion.recargo_valor_alto, "COP")
         total += configuracion.recargo_valor_alto
-        resultado.agregar_paso("Subtotal despues de recargo por valor alto", total, "COP")
 
     if entrada.peso > configuracion.umbral_peso:
         resultado.agregar_paso("Recargo por peso", configuracion.recargo_peso, "COP")
         total += configuracion.recargo_peso
-        resultado.agregar_paso("Subtotal despues de recargo por peso", total, "COP")
 
-    resultado.agregar_paso("Subtotal antes de IVA en COP", total, "COP")
+    resultado.agregar_paso("Subtotal antes de IVA", total, "COP")
 
     valor_iva = aplicar_porcentaje(total, configuracion.iva)
-    resultado.agregar_paso("Valor del IVA en COP", valor_iva, "COP")
+    resultado.agregar_paso("IVA", valor_iva, "COP")
 
     total += valor_iva
-    resultado.agregar_paso("Total con IVA", total, "COP")
+    resultado.agregar_paso("Total final", total, "COP")
     return resultado
 
 
 def cotizacion_local(entrada: CotizacionLocalInput, configuracion: Configuracion) -> ResultadoCotizacion:
     asegurar_no_negativo(entrada.precio_base_cop, "precio_base_cop")
+    asegurar_no_negativo(entrada.flete_local, "flete_local")
+    asegurar_no_negativo(entrada.ganancia_porcentaje, "ganancia_porcentaje")
     _validar_configuracion(configuracion)
 
     resultado = ResultadoCotizacion()
@@ -109,15 +109,19 @@ def cotizacion_local(entrada: CotizacionLocalInput, configuracion: Configuracion
 
     total = entrada.precio_base_cop + aplicar_flete_local(
         entrada.precio_base_cop,
-        configuracion.flete_local,
-        configuracion.flete_local_modo,
+        entrada.flete_local,
+        entrada.flete_modo,
     )
     resultado.agregar_paso("Subtotal con flete local", total, "COP")
 
-    total += aplicar_porcentaje(total, configuracion.ganancia_local)
-    resultado.agregar_paso("Subtotal con ganancia local", total, "COP")
+    valor_ganancia = aplicar_porcentaje(total, entrada.ganancia_porcentaje)
+    resultado.agregar_paso("Valor de la ganancia local en COP", valor_ganancia, "COP")
+    total += valor_ganancia
+    resultado.agregar_paso("Subtotal antes de IVA en COP", total, "COP")
 
-    total += aplicar_porcentaje(total, configuracion.iva)
+    valor_iva = aplicar_porcentaje(total, configuracion.iva)
+    resultado.agregar_paso("Valor del IVA en COP", valor_iva, "COP")
+    total += valor_iva
     resultado.agregar_paso("Total con IVA", total, "COP")
     return resultado
 
@@ -127,6 +131,8 @@ def cotizacion_reparacion(
     configuracion: Configuracion,
 ) -> ResultadoCotizacion:
     asegurar_no_negativo(entrada.precio_base_usd, "precio_base_usd")
+    asegurar_no_negativo(entrada.flete_reparacion, "flete_reparacion")
+    asegurar_no_negativo(entrada.ganancia_porcentaje, "ganancia_porcentaje")
     asegurar_no_negativo(entrada.peso, "peso")
     _validar_configuracion(configuracion)
 
@@ -134,20 +140,30 @@ def cotizacion_reparacion(
     precio_cop = convertir_a_cop(entrada.precio_base_usd, "USD", configuracion.tasa_usd, configuracion.tasa_eur)
     resultado.agregar_paso("Precio convertido a COP", precio_cop, "COP")
 
-    total = precio_cop + aplicar_porcentaje(precio_cop, configuracion.flete_reparacion)
+    total = precio_cop + aplicar_flete_local(
+        precio_cop,
+        entrada.flete_reparacion,
+        entrada.flete_modo,
+    )
     resultado.agregar_paso("Subtotal con flete de reparacion", total, "COP")
 
-    total += aplicar_porcentaje(total, configuracion.ganancia_reparacion)
-    resultado.agregar_paso("Subtotal con ganancia de reparacion", total, "COP")
+    valor_ganancia = aplicar_porcentaje(total, entrada.ganancia_porcentaje)
+    resultado.agregar_paso("Valor de la ganancia de reparacion en COP", valor_ganancia, "COP")
+    total += valor_ganancia
 
     if entrada.precio_base_usd > configuracion.umbral_usd:
+        resultado.agregar_paso("Recargo por valor alto", configuracion.recargo_valor_alto, "COP")
         total += configuracion.recargo_valor_alto
-        resultado.agregar_paso("Subtotal con recargo por valor alto", total, "COP")
+        resultado.agregar_paso("Subtotal despues de recargo por valor alto", total, "COP")
 
     if entrada.peso > configuracion.umbral_peso:
+        resultado.agregar_paso("Recargo por peso", configuracion.recargo_peso, "COP")
         total += configuracion.recargo_peso
-        resultado.agregar_paso("Subtotal con recargo por peso", total, "COP")
+        resultado.agregar_paso("Subtotal despues de recargo por peso", total, "COP")
 
-    total += aplicar_porcentaje(total, configuracion.iva)
+    resultado.agregar_paso("Subtotal antes de IVA en COP", total, "COP")
+    valor_iva = aplicar_porcentaje(total, configuracion.iva)
+    resultado.agregar_paso("Valor del IVA en COP", valor_iva, "COP")
+    total += valor_iva
     resultado.agregar_paso("Total con IVA", total, "COP")
     return resultado

@@ -23,8 +23,8 @@ def asegurar_positivo(valor: float, nombre: str) -> float:
 
 def validar_moneda(moneda: str) -> str:
     moneda_normalizada = moneda.strip().upper()
-    if moneda_normalizada not in {"USD", "EUR"}:
-        raise ValidacionError("La moneda debe ser 'USD' o 'EUR'.")
+    if moneda_normalizada not in {"COP", "USD", "EUR"}:
+        raise ValidacionError("La moneda debe ser 'COP', 'USD' o 'EUR'.")
     return moneda_normalizada
 
 
@@ -47,6 +47,8 @@ def convertir_a_cop(valor: float, moneda: str, tasa_usd: float, tasa_eur: float)
     asegurar_positivo(tasa_usd, "tasa_usd")
     asegurar_positivo(tasa_eur, "tasa_eur")
 
+    if moneda_normalizada == "COP":
+        return valor
     if moneda_normalizada == "USD":
         return valor * tasa_usd
     return valor * tasa_eur
@@ -58,6 +60,8 @@ def convertir_a_usd(valor: float, moneda: str, tasa_usd: float, tasa_eur: float)
     asegurar_positivo(tasa_usd, "tasa_usd")
     asegurar_positivo(tasa_eur, "tasa_eur")
 
+    if moneda_normalizada == "COP":
+        return valor / tasa_usd
     if moneda_normalizada == "USD":
         return valor
     return (valor * tasa_eur) / tasa_usd

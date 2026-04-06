@@ -33,6 +33,7 @@ class Configuracion:
     flete_local: float = 12.0
     flete_local_modo: str = "porcentaje"
     flete_reparacion: float = 8.0
+    flete_reparacion_modo: str = "porcentaje"
     recargo_valor_alto: float = 2_000_000.0
     recargo_peso: float = 350_000.0
     umbral_usd: float = 2000.0
@@ -48,18 +49,25 @@ class CotizacionImportacionInput:
     flete: float
     moneda: str
     peso: float
+    ganancia_porcentaje: float
     flete_modo: str = "fijo"
 
 
 @dataclass(slots=True)
 class CotizacionLocalInput:
     precio_base_cop: float
+    flete_local: float
+    ganancia_porcentaje: float
+    flete_modo: str = "fijo"
 
 
 @dataclass(slots=True)
 class CotizacionReparacionInput:
     precio_base_usd: float
+    flete_reparacion: float
+    ganancia_porcentaje: float
     peso: float
+    flete_modo: str = "porcentaje"
 
 
 @dataclass(slots=True)

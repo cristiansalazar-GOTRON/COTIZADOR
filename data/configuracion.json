@@ -9,6 +9,7 @@
   "flete_local": 12.0,
   "flete_local_modo": "porcentaje",
   "flete_reparacion": 8.0,
+  "flete_reparacion_modo": "porcentaje",
   "recargo_valor_alto": 2000000.0,
   "recargo_peso": 350000.0,
   "umbral_usd": 2000.0,

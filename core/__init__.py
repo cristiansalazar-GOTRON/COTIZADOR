@@ -17,9 +17,12 @@ from .modelos import (
     UltimaCotizacion,
 )
 from .servicios import (
+    actualizar_configuracion,
     generar_cotizacion_importacion,
     generar_cotizacion_local,
     generar_cotizacion_reparacion,
+    obtener_configuracion,
+    obtener_ultima_cotizacion,
 )
 
 __all__ = [
@@ -36,6 +39,9 @@ __all__ = [
     "generar_cotizacion_importacion",
     "generar_cotizacion_local",
     "generar_cotizacion_reparacion",
+    "obtener_configuracion",
+    "actualizar_configuracion",
+    "obtener_ultima_cotizacion",
     "cargar_configuracion",
     "cargar_ultima_cotizacion",
     "guardar_configuracion",

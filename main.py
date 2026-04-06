@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from core.config import cargar_configuracion, cargar_ultima_cotizacion
 from core.modelos import (
+    Configuracion,
     CotizacionImportacionInput,
     CotizacionLocalInput,
     CotizacionReparacionInput,
@@ -11,6 +11,8 @@ from core.servicios import (
     generar_cotizacion_importacion,
     generar_cotizacion_local,
     generar_cotizacion_reparacion,
+    obtener_configuracion,
+    obtener_ultima_cotizacion,
 )
 from core.utils import CotizadorError
 
@@ -103,7 +105,31 @@ def pedir_modo_flete_importacion(valor_por_defecto: str = "fijo") -> str:
         print("Opcion invalida. Elige 1 para fijo o 2 para porcentaje.")
 
 
-def construir_importacion_desde_ultima(ultima: UltimaCotizacion | None) -> CotizacionImportacionInput:
+def pedir_modo_flete_generico(mensaje: str, valor_por_defecto: str = "fijo") -> str:
+    equivalencias = {
+        "1": "fijo",
+        "2": "porcentaje",
+        "fijo": "fijo",
+        "porcentaje": "porcentaje",
+    }
+
+    print(f"\n{mensaje}")
+    print("1. Valor fijo")
+    print("2. Porcentaje")
+
+    while True:
+        opcion = input(f"Modo de flete [1/2] ({valor_por_defecto}): ").strip().lower()
+        if not opcion:
+            return valor_por_defecto
+        if opcion in equivalencias:
+            return equivalencias[opcion]
+        print("Opcion invalida. Elige 1 para fijo o 2 para porcentaje.")
+
+
+def construir_importacion_desde_ultima(
+    ultima: UltimaCotizacion | None,
+    configuracion: Configuracion,
+) -> CotizacionImportacionInput:
     valores = ultima.valores if ultima and ultima.tipo == "importacion" else {}
     flete_modo = pedir_modo_flete_importacion(str(valores.get("flete_modo", "fijo")).lower())
     mensaje_flete = "Flete en moneda original" if flete_modo == "fijo" else "Flete en porcentaje"
@@ -111,51 +137,87 @@ def construir_importacion_desde_ultima(ultima: UltimaCotizacion | None) -> Cotiz
     return CotizacionImportacionInput(
         precio=pedir_float("Precio", float(valores.get("precio", 0)) or None),
         flete=pedir_float(mensaje_flete, float(valores.get("flete", 0)) or None),
-        moneda=pedir_texto("Moneda (USD o EUR)", str(valores.get("moneda", "USD"))).upper(),
+        moneda=pedir_texto("Moneda (COP, USD o EUR)", str(valores.get("moneda", "USD"))).upper(),
+        peso=pedir_float("Peso en kg", float(valores.get("peso", 0)) or None),
+        ganancia_porcentaje=pedir_float(
+            "Ganancia en porcentaje",
+            float(valores.get("ganancia_porcentaje", configuracion.ganancia_importacion)),
+        ),
+        flete_modo=flete_modo,
+    )
+
+
+def construir_local_desde_ultima(
+    ultima: UltimaCotizacion | None,
+    configuracion: Configuracion,
+) -> CotizacionLocalInput:
+    valores = ultima.valores if ultima and ultima.tipo == "local" else {}
+    flete_modo = pedir_modo_flete_generico(
+        "Modo de flete local",
+        str(valores.get("flete_modo", configuracion.flete_local_modo)).lower(),
+    )
+    return CotizacionLocalInput(
+        precio_base_cop=pedir_float("Precio base en COP", float(valores.get("precio_base_cop", 0)) or None),
+        flete_local=pedir_float(
+            "Flete local",
+            float(valores.get("flete_local", configuracion.flete_local)),
+        ),
+        ganancia_porcentaje=pedir_float(
+            "Ganancia en porcentaje",
+            float(valores.get("ganancia_porcentaje", configuracion.ganancia_local)),
+        ),
+        flete_modo=flete_modo,
+    )
+
+
+def construir_reparacion_desde_ultima(
+    ultima: UltimaCotizacion | None,
+    configuracion: Configuracion,
+) -> CotizacionReparacionInput:
+    valores = ultima.valores if ultima and ultima.tipo == "reparacion" else {}
+    flete_modo = pedir_modo_flete_generico(
+        "Modo de flete de reparacion",
+        str(valores.get("flete_modo", configuracion.flete_reparacion_modo)).lower(),
+    )
+    return CotizacionReparacionInput(
+        precio_base_usd=pedir_float("Precio base en USD", float(valores.get("precio_base_usd", 0)) or None),
+        flete_reparacion=pedir_float(
+            "Flete de reparacion",
+            float(valores.get("flete_reparacion", configuracion.flete_reparacion)),
+        ),
+        ganancia_porcentaje=pedir_float(
+            "Ganancia en porcentaje",
+            float(valores.get("ganancia_porcentaje", configuracion.ganancia_reparacion)),
+        ),
         peso=pedir_float("Peso en kg", float(valores.get("peso", 0)) or None),
         flete_modo=flete_modo,
     )
 
 
-def construir_local_desde_ultima(ultima: UltimaCotizacion | None) -> CotizacionLocalInput:
-    valores = ultima.valores if ultima and ultima.tipo == "local" else {}
-    return CotizacionLocalInput(
-        precio_base_cop=pedir_float("Precio base en COP", float(valores.get("precio_base_cop", 0)) or None),
-    )
-
-
-def construir_reparacion_desde_ultima(ultima: UltimaCotizacion | None) -> CotizacionReparacionInput:
-    valores = ultima.valores if ultima and ultima.tipo == "reparacion" else {}
-    return CotizacionReparacionInput(
-        precio_base_usd=pedir_float("Precio base en USD", float(valores.get("precio_base_usd", 0)) or None),
-        peso=pedir_float("Peso en kg", float(valores.get("peso", 0)) or None),
-    )
-
-
 def ejecutar_cotizacion(tipo: str, ultima: UltimaCotizacion | None) -> None:
-    configuracion = cargar_configuracion()
+    configuracion = obtener_configuracion()
 
     if tipo == "importacion":
-        entrada = construir_importacion_desde_ultima(ultima)
+        entrada = construir_importacion_desde_ultima(ultima, configuracion)
         resultado = generar_cotizacion_importacion(entrada, configuracion, guardar_formulario=True)
         imprimir_resultado("COTIZACION DE IMPORTACION", resultado)
         return
 
     if tipo == "local":
-        entrada = construir_local_desde_ultima(ultima)
+        entrada = construir_local_desde_ultima(ultima, configuracion)
         resultado = generar_cotizacion_local(entrada, configuracion, guardar_formulario=True)
         imprimir_resultado("COTIZACION LOCAL", resultado)
         return
 
-    entrada = construir_reparacion_desde_ultima(ultima)
+    entrada = construir_reparacion_desde_ultima(ultima, configuracion)
     resultado = generar_cotizacion_reparacion(entrada, configuracion, guardar_formulario=True)
     imprimir_resultado("COTIZACION DE REPARACION", resultado)
 
 
 def main() -> None:
-    ultima = cargar_ultima_cotizacion()
+    ultima = obtener_ultima_cotizacion()
 
-    print("COTIZADOR TECNICO")
+    print("COTIZADOR GOTRON")
     if ultima is not None:
         print(f"Ultima cotizacion guardada: {ultima.tipo} -> {ultima.valores}")
 
