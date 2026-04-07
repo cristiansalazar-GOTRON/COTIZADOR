@@ -28,21 +28,25 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.controller = CotizadorController()
         self.setWindowTitle("Cotizador GOTRON")
-        self.resize(860, 980)
-        self.setMinimumSize(820, 920)
+        self.resize(860, 760)
+        self.setMinimumSize(820, 760)
 
         central = QWidget()
         self.setCentralWidget(central)
         self.root_layout = QVBoxLayout(central)
         self.root_layout.setContentsMargins(10, 10, 10, 10)
         self.root_layout.setSpacing(8)
+        self.root_layout.setAlignment(Qt.AlignTop)
 
         body_layout = QGridLayout()
         body_layout.setHorizontalSpacing(10)
         body_layout.setVerticalSpacing(2)
         body_layout.setColumnStretch(0, 1)
         body_layout.setColumnStretch(1, 1)
+        body_layout.setColumnMinimumWidth(0, 0)
+        body_layout.setColumnMinimumWidth(1, 0)
         body_layout.setRowStretch(0, 0)
+        body_layout.setAlignment(Qt.AlignTop)
 
         self.sidebar = self._build_sidebar()
         self.form_panel = self._build_form_panel()
@@ -58,24 +62,31 @@ class MainWindow(QMainWindow):
 
         self._apply_styles()
         self._load_initial_state(usar_ultima=False)
+        self._sync_top_panel_heights()
+        self.adjustSize()
 
     def _build_sidebar(self) -> QFrame:
         frame = QFrame()
         frame.setObjectName("SidebarCard")
-        frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        frame.setFixedHeight(392)
+        frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        frame.setMinimumHeight(392)
+        frame.setMinimumWidth(0)
+        frame.setMaximumWidth(16777215)
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(6)
+        layout.setSpacing(8)
 
         brand = QLabel("Cotizador GOTRON")
         brand.setObjectName("BrandTitle")
+        brand.setTextInteractionFlags(Qt.TextSelectableByMouse)
         tagline = QLabel("Panel tecnico claro y rapido.")
         tagline.setWordWrap(True)
         tagline.setObjectName("SidebarText")
+        tagline.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         tipo_label = QLabel("Tipo de cotizacion")
         tipo_label.setObjectName("SidebarSection")
+        tipo_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.tipo_selector = QComboBox()
         self.tipo_selector.addItem("Importacion", "importacion")
         self.tipo_selector.addItem("Local", "local")
@@ -88,10 +99,12 @@ class MainWindow(QMainWindow):
 
         self.tipo_actual = QLabel("Actual: Importacion")
         self.tipo_actual.setObjectName("SidebarTextStrong")
+        self.tipo_actual.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.ultima_info = QLabel("Ultima: sin registro")
         self.ultima_info.setWordWrap(True)
         self.ultima_info.setObjectName("SidebarText")
         self.ultima_info.setMaximumHeight(42)
+        self.ultima_info.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         layout.addWidget(brand)
         layout.addWidget(tagline)
@@ -114,14 +127,17 @@ class MainWindow(QMainWindow):
     def _build_form_panel(self) -> QFrame:
         frame = QFrame()
         frame.setObjectName("PanelCard")
-        frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        frame.setFixedHeight(392)
+        frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        frame.setMinimumHeight(392)
+        frame.setMinimumWidth(0)
+        frame.setMaximumWidth(16777215)
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(8)
 
         titulo = QLabel("Datos de cotizacion")
         titulo.setObjectName("PanelTitle")
+        titulo.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         self.stacked_forms = QStackedWidget()
         self.importacion_form = ImportacionForm()
@@ -131,8 +147,8 @@ class MainWindow(QMainWindow):
         self.stacked_forms.addWidget(self.importacion_form)
         self.stacked_forms.addWidget(self.local_form)
         self.stacked_forms.addWidget(self.reparacion_form)
-        self.stacked_forms.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.stacked_forms.setFixedHeight(330)
+        self.stacked_forms.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        self.stacked_forms.setMinimumHeight(330)
 
         layout.addWidget(titulo)
         layout.addWidget(self.stacked_forms, 0, Qt.AlignTop)
@@ -171,6 +187,7 @@ class MainWindow(QMainWindow):
         self._current_form().populate(valores)
         self._refresh_sidebar_info()
         self.resultado_view.limpiar()
+        self._sync_top_panel_heights()
 
     def _refresh_sidebar_info(self) -> None:
         tipo = self._current_type()
@@ -195,6 +212,15 @@ class MainWindow(QMainWindow):
     def _on_type_changed(self, _: int) -> None:
         self.stacked_forms.setCurrentIndex(self._current_type_index())
         self._load_initial_state(usar_ultima=False)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._sync_top_panel_heights()
+
+    def _sync_top_panel_heights(self) -> None:
+        target_height = max(self.sidebar.sizeHint().height(), self.form_panel.sizeHint().height(), 392)
+        self.sidebar.setFixedHeight(target_height)
+        self.form_panel.setFixedHeight(target_height)
 
     def _calcular(self) -> None:
         tipo = self._current_type()

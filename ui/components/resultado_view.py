@@ -4,6 +4,80 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QVBoxLayout, QWidget
 
 
+PLANTILLAS_PASOS: dict[str, list[tuple[str, str, bool]]] = {
+    "importacion": [
+        ("Precio del producto", "Precio producto:", False),
+        ("Calculo del flete", "Flete:", False),
+        ("Subtotal en moneda original", "Subtotal:", False),
+        ("Conversion a COP", "Conversion a COP:", False),
+        ("Calculo de ganancia en COP", "Ganancia:", False),
+        ("Recargo por valor alto", "Recargo por valor alto:", False),
+        ("Recargo por peso", "Recargo por peso:", False),
+        ("Subtotal antes de IVA", "Subtotal sin IVA:", False),
+        ("IVA", "IVA:", False),
+        ("Total final", "TOTAL FINAL:", True),
+    ],
+    "local": [
+        ("Precio base en COP", "Precio base:", False),
+        ("Subtotal con flete local", "Subtotal con flete:", False),
+        ("Valor de la ganancia local en COP", "Ganancia:", False),
+        ("Subtotal antes de IVA en COP", "Subtotal sin IVA:", False),
+        ("Valor del IVA en COP", "IVA:", False),
+        ("Total con IVA", "TOTAL FINAL:", True),
+    ],
+    "reparacion": [
+        ("Precio del producto", "Precio producto:", False),
+        ("Conversion a COP", "Conversion a COP:", False),
+        ("Subtotal con flete de reparacion", "Subtotal con flete:", False),
+        ("Valor de la ganancia de reparacion en COP", "Ganancia:", False),
+        ("Recargo por valor alto", "Recargo por valor alto:", False),
+        ("Recargo por peso", "Recargo por peso:", False),
+        ("Subtotal antes de IVA", "Subtotal sin IVA:", False),
+        ("IVA", "IVA:", False),
+        ("Total final", "TOTAL FINAL:", True),
+    ],
+}
+
+
+class PasoRow(QFrame):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setObjectName("PasoRow")
+
+        layout = QGridLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(8)
+        layout.setVerticalSpacing(0)
+        layout.setColumnMinimumWidth(0, 160)
+        layout.setColumnStretch(0, 3)
+        layout.setColumnStretch(1, 2)
+
+        self.etiqueta_label = QLabel("-")
+        self.etiqueta_label.setObjectName("PasoDescripcion")
+        self.etiqueta_label.setWordWrap(True)
+        self.etiqueta_label.setMinimumHeight(10)
+        self.etiqueta_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        self.valor_label = QLabel("-")
+        self.valor_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.valor_label.setObjectName("PasoValor")
+        self.valor_label.setMinimumHeight(10)
+        self.valor_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        layout.addWidget(self.etiqueta_label, 0, 0)
+        layout.addWidget(self.valor_label, 0, 1)
+
+    def configurar(self, etiqueta: str, valor: str, destacado: bool) -> None:
+        self.etiqueta_label.setText(etiqueta)
+        self.valor_label.setText(valor)
+        self.etiqueta_label.setObjectName("PasoDescripcionTotal" if destacado else "PasoDescripcion")
+        self.valor_label.setObjectName("PasoValorTotal" if destacado else "PasoValor")
+        self.style().unpolish(self.etiqueta_label)
+        self.style().polish(self.etiqueta_label)
+        self.style().unpolish(self.valor_label)
+        self.style().polish(self.valor_label)
+
+
 class ResultadoView(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -19,49 +93,24 @@ class ResultadoView(QWidget):
 
         pasos_titulo = QLabel("PASOS")
         pasos_titulo.setObjectName("CardTitle")
+        pasos_titulo.setTextInteractionFlags(Qt.TextSelectableByMouse)
         pasos_layout.addWidget(pasos_titulo)
 
-        pasos_grid = QGridLayout()
-        pasos_grid.setContentsMargins(0, 0, 0, 0)
-        pasos_grid.setHorizontalSpacing(8)
-        pasos_grid.setVerticalSpacing(0)
-        pasos_grid.setColumnMinimumWidth(0, 145)
-        pasos_grid.setColumnStretch(0, 3)
-        pasos_grid.setColumnStretch(1, 2)
+        self.rows_container = QVBoxLayout()
+        self.rows_container.setContentsMargins(0, 0, 0, 0)
+        self.rows_container.setSpacing(0)
+        pasos_layout.addLayout(self.rows_container)
 
-        self.lbl_precio_valor = self._crear_fila_paso(
-            pasos_grid, 0, "Precio producto:", destacado=False
-        )
-        self.lbl_flete_valor = self._crear_fila_paso(
-            pasos_grid, 1, "Flete:", destacado=False
-        )
-        self.lbl_subtotal_valor = self._crear_fila_paso(
-            pasos_grid, 2, "Subtotal:", destacado=False
-        )
-        self.lbl_conversion_valor = self._crear_fila_paso(
-            pasos_grid, 3, "Conversión a COP:", destacado=False
-        )
-        self.lbl_ganancia_valor = self._crear_fila_paso(
-            pasos_grid, 4, "Ganancia:", destacado=False
-        )
-        self.lbl_recargos_valor = self._crear_fila_paso(
-            pasos_grid, 5, "Recargos:", destacado=False
-        )
-        self.lbl_subtotal_sin_iva_valor = self._crear_fila_paso(
-            pasos_grid, 6, "Subtotal sin IVA:", destacado=False
-        )
-        self.lbl_iva_valor = self._crear_fila_paso(
-            pasos_grid, 7, "IVA:", destacado=False
-        )
-        self.lbl_total_valor = self._crear_fila_paso(
-            pasos_grid, 8, "TOTAL FINAL:", destacado=True
-        )
-        pasos_layout.addLayout(pasos_grid)
+        self.paso_rows: list[PasoRow] = []
+        for _ in range(10):
+            row = PasoRow()
+            self.paso_rows.append(row)
+            self.rows_container.addWidget(row)
+
         layout.addWidget(pasos_card, 1)
 
     def limpiar(self) -> None:
-        for label in self._labels_pasos():
-            label.setText("-")
+        self._render_tipo("importacion", {})
 
     def mostrar_resultado(
         self,
@@ -71,91 +120,28 @@ class ResultadoView(QWidget):
         total_final: str,
         pasos: list[dict[str, str]],
     ) -> None:
-        self._limpiar_pasos()
-        self._mapear_pasos_backend(pasos)
+        del moneda, ganancia, total_final
+        pasos_por_descripcion = {
+            str(paso.get("descripcion", "")): self._formatear_valor(
+                str(paso.get("valor", "-")),
+                str(paso.get("moneda", "")),
+            )
+            for paso in pasos
+        }
+        self._render_tipo(tipo, pasos_por_descripcion)
 
-    def _crear_fila_paso(
-        self,
-        layout: QGridLayout,
-        fila: int,
-        etiqueta: str,
-        destacado: bool,
-    ) -> QLabel:
-        etiqueta_label = QLabel(etiqueta)
-        etiqueta_label.setObjectName("PasoDescripcion")
-        etiqueta_label.setWordWrap(True)
-        etiqueta_label.setMinimumHeight(10)
-        if destacado:
-            etiqueta_label.setObjectName("PasoDescripcionTotal")
-
-        valor_label = QLabel("-")
-        valor_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        valor_label.setObjectName("PasoValor")
-        valor_label.setMinimumHeight(10)
-        if destacado:
-            valor_label.setObjectName("PasoValorTotal")
-
-        layout.addWidget(etiqueta_label, fila, 0)
-        layout.addWidget(valor_label, fila, 1)
-        return valor_label
-
-    def _labels_pasos(self) -> list[QLabel]:
-        return [
-            self.lbl_precio_valor,
-            self.lbl_flete_valor,
-            self.lbl_subtotal_valor,
-            self.lbl_conversion_valor,
-            self.lbl_ganancia_valor,
-            self.lbl_recargos_valor,
-            self.lbl_subtotal_sin_iva_valor,
-            self.lbl_iva_valor,
-            self.lbl_total_valor,
-        ]
-
-    def _limpiar_pasos(self) -> None:
-        for label in self._labels_pasos():
-            label.setText("-")
+    def _render_tipo(self, tipo: str, pasos_por_descripcion: dict[str, str]) -> None:
+        plantilla = PLANTILLAS_PASOS[tipo]
+        for index, row in enumerate(self.paso_rows):
+            if index < len(plantilla):
+                descripcion_backend, etiqueta, destacado = plantilla[index]
+                valor = pasos_por_descripcion.get(descripcion_backend, "-")
+                row.configurar(etiqueta, valor, destacado)
+                row.show()
+            else:
+                row.hide()
 
     def _formatear_valor(self, valor: str, moneda: str) -> str:
         if valor in {"", "-"}:
             return "-"
         return f"{valor} {moneda}".strip()
-
-    def _mapear_pasos_backend(self, pasos: list[dict[str, str]]) -> None:
-        recargos_total = 0.0
-        recargo_detectado = False
-
-        for paso in pasos:
-            descripcion = str(paso.get("descripcion", "")).lower()
-            valor = str(paso.get("valor", "-"))
-            moneda = str(paso.get("moneda", ""))
-
-            if "precio" in descripcion:
-                self.lbl_precio_valor.setText(self._formatear_valor(valor, moneda))
-            elif "flete" in descripcion:
-                self.lbl_flete_valor.setText(self._formatear_valor(valor, moneda))
-            elif "subtotal en moneda original" in descripcion or "subtotal con flete local" in descripcion:
-                self.lbl_subtotal_valor.setText(self._formatear_valor(valor, moneda))
-            elif "subtotal con flete de reparacion" in descripcion:
-                self.lbl_subtotal_valor.setText(self._formatear_valor(valor, moneda))
-            elif "conversion" in descripcion:
-                self.lbl_conversion_valor.setText(self._formatear_valor(valor, moneda))
-            elif "ganancia" in descripcion:
-                self.lbl_ganancia_valor.setText(self._formatear_valor(valor, moneda))
-            elif "recargo" in descripcion:
-                recargo_detectado = True
-                try:
-                    recargos_total += float(valor.replace(",", ""))
-                except ValueError:
-                    pass
-            elif "subtotal antes de iva" in descripcion:
-                self.lbl_subtotal_sin_iva_valor.setText(self._formatear_valor(valor, moneda))
-            elif descripcion.strip() == "iva" or "valor del iva" in descripcion:
-                self.lbl_iva_valor.setText(self._formatear_valor(valor, moneda))
-            elif "total" in descripcion:
-                self.lbl_total_valor.setText(self._formatear_valor(valor, moneda))
-
-        if recargo_detectado:
-            self.lbl_recargos_valor.setText(self._formatear_valor(f"{recargos_total:,.2f}", "COP"))
-        else:
-            self.lbl_recargos_valor.setText("0.00 COP")
