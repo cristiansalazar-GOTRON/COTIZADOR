@@ -19,8 +19,11 @@ from .modelos import (
 from .servicios import (
     actualizar_configuracion,
     generar_cotizacion_importacion,
+    generar_cotizacion_importacion_desde_payload,
     generar_cotizacion_local,
+    generar_cotizacion_local_desde_payload,
     generar_cotizacion_reparacion,
+    generar_cotizacion_reparacion_desde_payload,
     obtener_configuracion,
     obtener_ultima_cotizacion,
 )
@@ -37,8 +40,11 @@ __all__ = [
     "cotizacion_local",
     "cotizacion_reparacion",
     "generar_cotizacion_importacion",
+    "generar_cotizacion_importacion_desde_payload",
     "generar_cotizacion_local",
+    "generar_cotizacion_local_desde_payload",
     "generar_cotizacion_reparacion",
+    "generar_cotizacion_reparacion_desde_payload",
     "obtener_configuracion",
     "actualizar_configuracion",
     "obtener_ultima_cotizacion",

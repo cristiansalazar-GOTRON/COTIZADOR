@@ -29,6 +29,18 @@ def generar_cotizacion_importacion(
     return cotizacion_importacion(entrada, configuracion or cargar_configuracion())
 
 
+def generar_cotizacion_importacion_desde_payload(
+    payload: dict,
+    configuracion: Configuracion | None = None,
+    guardar_formulario: bool = False,
+) -> ResultadoCotizacion:
+    return generar_cotizacion_importacion(
+        CotizacionImportacionInput(**payload),
+        configuracion=configuracion,
+        guardar_formulario=guardar_formulario,
+    )
+
+
 def generar_cotizacion_local(
     entrada: CotizacionLocalInput,
     configuracion: Configuracion | None = None,
@@ -39,6 +51,18 @@ def generar_cotizacion_local(
     return cotizacion_local(entrada, configuracion or cargar_configuracion())
 
 
+def generar_cotizacion_local_desde_payload(
+    payload: dict,
+    configuracion: Configuracion | None = None,
+    guardar_formulario: bool = False,
+) -> ResultadoCotizacion:
+    return generar_cotizacion_local(
+        CotizacionLocalInput(**payload),
+        configuracion=configuracion,
+        guardar_formulario=guardar_formulario,
+    )
+
+
 def generar_cotizacion_reparacion(
     entrada: CotizacionReparacionInput,
     configuracion: Configuracion | None = None,
@@ -47,6 +71,18 @@ def generar_cotizacion_reparacion(
     if guardar_formulario:
         guardar_ultima_cotizacion(UltimaCotizacion(tipo="reparacion", valores=asdict(entrada)))
     return cotizacion_reparacion(entrada, configuracion or cargar_configuracion())
+
+
+def generar_cotizacion_reparacion_desde_payload(
+    payload: dict,
+    configuracion: Configuracion | None = None,
+    guardar_formulario: bool = False,
+) -> ResultadoCotizacion:
+    return generar_cotizacion_reparacion(
+        CotizacionReparacionInput(**payload),
+        configuracion=configuracion,
+        guardar_formulario=guardar_formulario,
+    )
 
 
 def obtener_configuracion() -> Configuracion:
