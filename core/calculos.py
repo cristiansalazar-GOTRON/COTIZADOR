@@ -43,7 +43,12 @@ def cotizacion_importacion(
     asegurar_no_negativo(entrada.flete, "flete")
     asegurar_no_negativo(entrada.peso, "peso")
     asegurar_no_negativo(entrada.ganancia_porcentaje, "ganancia_porcentaje")
+    asegurar_no_negativo(entrada.iva_porcentaje, "iva_porcentaje")
     _validar_configuracion(configuracion)
+    tasa_usd = entrada.tasa_usd if entrada.tasa_usd is not None else configuracion.tasa_usd
+    tasa_eur = entrada.tasa_eur if entrada.tasa_eur is not None else configuracion.tasa_eur
+    asegurar_no_negativo(tasa_usd, "tasa_usd")
+    asegurar_no_negativo(tasa_eur, "tasa_eur")
 
     resultado = ResultadoCotizacion()
     moneda_original = entrada.moneda.upper()
@@ -64,8 +69,8 @@ def cotizacion_importacion(
     subtotal_cop = convertir_a_cop(
         subtotal_moneda,
         entrada.moneda,
-        configuracion.tasa_usd,
-        configuracion.tasa_eur,
+        tasa_usd,
+        tasa_eur,
     )
     resultado.agregar_paso("Conversion a COP", subtotal_cop, "COP")
 
@@ -77,8 +82,8 @@ def cotizacion_importacion(
     valor_en_usd = convertir_a_usd(
         subtotal_moneda,
         entrada.moneda,
-        configuracion.tasa_usd,
-        configuracion.tasa_eur,
+        tasa_usd,
+        tasa_eur,
     )
     if valor_en_usd > configuracion.umbral_usd:
         resultado.agregar_paso("Recargo por valor alto", configuracion.recargo_valor_alto, "COP")
@@ -90,7 +95,7 @@ def cotizacion_importacion(
 
     resultado.agregar_paso("Subtotal antes de IVA", total, "COP")
 
-    valor_iva = aplicar_porcentaje(total, configuracion.iva)
+    valor_iva = aplicar_porcentaje(total, entrada.iva_porcentaje)
     resultado.agregar_paso("IVA", valor_iva, "COP")
 
     total += valor_iva
@@ -102,6 +107,7 @@ def cotizacion_local(entrada: CotizacionLocalInput, configuracion: Configuracion
     asegurar_no_negativo(entrada.precio_base_cop, "precio_base_cop")
     asegurar_no_negativo(entrada.flete_local, "flete_local")
     asegurar_no_negativo(entrada.ganancia_porcentaje, "ganancia_porcentaje")
+    asegurar_no_negativo(entrada.iva_porcentaje, "iva_porcentaje")
     _validar_configuracion(configuracion)
 
     resultado = ResultadoCotizacion()
@@ -119,7 +125,7 @@ def cotizacion_local(entrada: CotizacionLocalInput, configuracion: Configuracion
     total += valor_ganancia
     resultado.agregar_paso("Subtotal antes de IVA en COP", total, "COP")
 
-    valor_iva = aplicar_porcentaje(total, configuracion.iva)
+    valor_iva = aplicar_porcentaje(total, entrada.iva_porcentaje)
     resultado.agregar_paso("Valor del IVA en COP", valor_iva, "COP")
     total += valor_iva
     resultado.agregar_paso("Total con IVA", total, "COP")
@@ -130,15 +136,22 @@ def cotizacion_reparacion(
     entrada: CotizacionReparacionInput,
     configuracion: Configuracion,
 ) -> ResultadoCotizacion:
-    asegurar_no_negativo(entrada.precio_base_usd, "precio_base_usd")
+    asegurar_no_negativo(entrada.precio_base, "precio_base")
     asegurar_no_negativo(entrada.flete_reparacion, "flete_reparacion")
     asegurar_no_negativo(entrada.ganancia_porcentaje, "ganancia_porcentaje")
+    asegurar_no_negativo(entrada.iva_porcentaje, "iva_porcentaje")
     asegurar_no_negativo(entrada.peso, "peso")
     _validar_configuracion(configuracion)
+    tasa_usd = entrada.tasa_usd if entrada.tasa_usd is not None else configuracion.tasa_usd
+    tasa_eur = entrada.tasa_eur if entrada.tasa_eur is not None else configuracion.tasa_eur
+    asegurar_no_negativo(tasa_usd, "tasa_usd")
+    asegurar_no_negativo(tasa_eur, "tasa_eur")
 
     resultado = ResultadoCotizacion()
-    precio_cop = convertir_a_cop(entrada.precio_base_usd, "USD", configuracion.tasa_usd, configuracion.tasa_eur)
-    resultado.agregar_paso("Precio convertido a COP", precio_cop, "COP")
+    moneda_original = entrada.moneda.upper()
+    resultado.agregar_paso("Precio del producto", entrada.precio_base, moneda_original)
+    precio_cop = convertir_a_cop(entrada.precio_base, entrada.moneda, tasa_usd, tasa_eur)
+    resultado.agregar_paso("Conversion a COP", precio_cop, "COP")
 
     total = precio_cop + aplicar_flete_local(
         precio_cop,
@@ -151,19 +164,18 @@ def cotizacion_reparacion(
     resultado.agregar_paso("Valor de la ganancia de reparacion en COP", valor_ganancia, "COP")
     total += valor_ganancia
 
-    if entrada.precio_base_usd > configuracion.umbral_usd:
+    valor_en_usd = convertir_a_usd(entrada.precio_base, entrada.moneda, tasa_usd, tasa_eur)
+    if valor_en_usd > configuracion.umbral_usd:
         resultado.agregar_paso("Recargo por valor alto", configuracion.recargo_valor_alto, "COP")
         total += configuracion.recargo_valor_alto
-        resultado.agregar_paso("Subtotal despues de recargo por valor alto", total, "COP")
 
     if entrada.peso > configuracion.umbral_peso:
         resultado.agregar_paso("Recargo por peso", configuracion.recargo_peso, "COP")
         total += configuracion.recargo_peso
-        resultado.agregar_paso("Subtotal despues de recargo por peso", total, "COP")
 
-    resultado.agregar_paso("Subtotal antes de IVA en COP", total, "COP")
-    valor_iva = aplicar_porcentaje(total, configuracion.iva)
-    resultado.agregar_paso("Valor del IVA en COP", valor_iva, "COP")
+    resultado.agregar_paso("Subtotal antes de IVA", total, "COP")
+    valor_iva = aplicar_porcentaje(total, entrada.iva_porcentaje)
+    resultado.agregar_paso("IVA", valor_iva, "COP")
     total += valor_iva
-    resultado.agregar_paso("Total con IVA", total, "COP")
+    resultado.agregar_paso("Total final", total, "COP")
     return resultado

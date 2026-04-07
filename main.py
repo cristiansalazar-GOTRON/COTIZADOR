@@ -134,16 +134,30 @@ def construir_importacion_desde_ultima(
     flete_modo = pedir_modo_flete_importacion(str(valores.get("flete_modo", "fijo")).lower())
     mensaje_flete = "Flete en moneda original" if flete_modo == "fijo" else "Flete en porcentaje"
 
+    moneda = pedir_texto("Moneda (COP, USD o EUR)", str(valores.get("moneda", "USD"))).upper()
+    tasa_usd = None
+    tasa_eur = None
+    if moneda in {"USD", "EUR", "COP"}:
+        tasa_usd = pedir_float("Tasa USD a COP", float(valores.get("tasa_usd", configuracion.tasa_usd)))
+    if moneda == "EUR":
+        tasa_eur = pedir_float("Tasa EUR a COP", float(valores.get("tasa_eur", configuracion.tasa_eur)))
+
     return CotizacionImportacionInput(
         precio=pedir_float("Precio", float(valores.get("precio", 0)) or None),
         flete=pedir_float(mensaje_flete, float(valores.get("flete", 0)) or None),
-        moneda=pedir_texto("Moneda (COP, USD o EUR)", str(valores.get("moneda", "USD"))).upper(),
+        moneda=moneda,
         peso=pedir_float("Peso en kg", float(valores.get("peso", 0)) or None),
         ganancia_porcentaje=pedir_float(
             "Ganancia en porcentaje",
             float(valores.get("ganancia_porcentaje", configuracion.ganancia_importacion)),
         ),
+        iva_porcentaje=pedir_float(
+            "IVA en porcentaje",
+            float(valores.get("iva_porcentaje", configuracion.iva)),
+        ),
         flete_modo=flete_modo,
+        tasa_usd=tasa_usd,
+        tasa_eur=tasa_eur,
     )
 
 
@@ -166,6 +180,10 @@ def construir_local_desde_ultima(
             "Ganancia en porcentaje",
             float(valores.get("ganancia_porcentaje", configuracion.ganancia_local)),
         ),
+        iva_porcentaje=pedir_float(
+            "IVA en porcentaje",
+            float(valores.get("iva_porcentaje", configuracion.iva)),
+        ),
         flete_modo=flete_modo,
     )
 
@@ -179,8 +197,14 @@ def construir_reparacion_desde_ultima(
         "Modo de flete de reparacion",
         str(valores.get("flete_modo", configuracion.flete_reparacion_modo)).lower(),
     )
+    moneda = pedir_texto("Moneda (COP, USD o EUR)", str(valores.get("moneda", "USD"))).upper()
+    tasa_usd = pedir_float("Tasa USD a COP", float(valores.get("tasa_usd", configuracion.tasa_usd)))
+    tasa_eur = None
+    if moneda == "EUR":
+        tasa_eur = pedir_float("Tasa EUR a COP", float(valores.get("tasa_eur", configuracion.tasa_eur)))
     return CotizacionReparacionInput(
-        precio_base_usd=pedir_float("Precio base en USD", float(valores.get("precio_base_usd", 0)) or None),
+        precio_base=pedir_float("Precio base", float(valores.get("precio_base", 0)) or None),
+        moneda=moneda,
         flete_reparacion=pedir_float(
             "Flete de reparacion",
             float(valores.get("flete_reparacion", configuracion.flete_reparacion)),
@@ -189,8 +213,14 @@ def construir_reparacion_desde_ultima(
             "Ganancia en porcentaje",
             float(valores.get("ganancia_porcentaje", configuracion.ganancia_reparacion)),
         ),
+        iva_porcentaje=pedir_float(
+            "IVA en porcentaje",
+            float(valores.get("iva_porcentaje", configuracion.iva)),
+        ),
         peso=pedir_float("Peso en kg", float(valores.get("peso", 0)) or None),
         flete_modo=flete_modo,
+        tasa_usd=tasa_usd,
+        tasa_eur=tasa_eur,
     )
 
 

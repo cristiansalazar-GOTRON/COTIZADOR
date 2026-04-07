@@ -55,7 +55,9 @@ def test_cotizacion_importacion_con_recargos():
             moneda="USD",
             peso=6,
             ganancia_porcentaje=20,
+            iva_porcentaje=19,
             flete_modo="fijo",
+            tasa_usd=4000,
         ),
         configuracion,
     )
@@ -98,7 +100,9 @@ def test_cotizacion_importacion_con_flete_porcentaje():
             moneda="USD",
             peso=2,
             ganancia_porcentaje=20,
+            iva_porcentaje=19,
             flete_modo="porcentaje",
+            tasa_usd=4000,
         ),
         configuracion,
     )
@@ -116,6 +120,7 @@ def test_cotizacion_local_con_flete_porcentaje():
             precio_base_cop=1_000_000,
             flete_local=10,
             ganancia_porcentaje=20,
+            iva_porcentaje=19,
             flete_modo="porcentaje",
         ),
         configuracion,
@@ -133,6 +138,7 @@ def test_cotizacion_local_con_flete_fijo():
             precio_base_cop=1_000_000,
             flete_local=120_000,
             ganancia_porcentaje=20,
+            iva_porcentaje=19,
             flete_modo="fijo",
         ),
         configuracion,
@@ -151,11 +157,14 @@ def test_cotizacion_reparacion_sin_recargos():
 
     resultado = cotizacion_reparacion(
         CotizacionReparacionInput(
-            precio_base_usd=500,
+            precio_base=500,
+            moneda="USD",
             flete_reparacion=10,
             ganancia_porcentaje=20,
+            iva_porcentaje=19,
             peso=3,
             flete_modo="porcentaje",
+            tasa_usd=4000,
         ),
         configuracion,
     )
@@ -166,7 +175,7 @@ def test_cotizacion_reparacion_sin_recargos():
 def test_no_permite_valores_negativos():
     with pytest.raises(ValidacionError):
         cotizacion_local(
-            CotizacionLocalInput(precio_base_cop=-1, flete_local=0, ganancia_porcentaje=20),
+            CotizacionLocalInput(precio_base_cop=-1, flete_local=0, ganancia_porcentaje=20, iva_porcentaje=19),
             Configuracion(),
         )
 
@@ -180,6 +189,7 @@ def test_valida_moneda():
                 moneda="XXX",
                 peso=1,
                 ganancia_porcentaje=10,
+                iva_porcentaje=19,
                 flete_modo="fijo",
             ),
             Configuracion(),
@@ -195,6 +205,7 @@ def test_valida_modo_flete_importacion():
                 moneda="USD",
                 peso=1,
                 ganancia_porcentaje=10,
+                iva_porcentaje=19,
                 flete_modo="automatico",
             ),
             Configuracion(),
@@ -208,6 +219,7 @@ def test_valida_modo_flete_local():
                 precio_base_cop=1000,
                 flete_local=100,
                 ganancia_porcentaje=20,
+                iva_porcentaje=19,
                 flete_modo="automatico",
             ),
             Configuracion(),
@@ -245,6 +257,7 @@ def test_guarda_y_carga_ultima_cotizacion(tmp_path: Path):
             "moneda": "USD",
             "peso": 2.5,
             "ganancia_porcentaje": 30,
+            "iva_porcentaje": 19,
             "flete_modo": "fijo",
         },
     )
@@ -266,6 +279,7 @@ def test_servicio_guarda_formulario_de_la_ultima_cotizacion(tmp_path: Path):
         moneda="USD",
         peso=4,
         ganancia_porcentaje=25,
+        iva_porcentaje=19,
         flete_modo="fijo",
     )
 
@@ -297,10 +311,119 @@ def test_importacion_acepta_moneda_cop():
             moneda="COP",
             peso=2,
             ganancia_porcentaje=10,
+            iva_porcentaje=19,
             flete_modo="fijo",
+            tasa_usd=4000,
         ),
         configuracion,
     )
 
     assert resultado.pasos[0].moneda == "COP"
     assert resultado.total_final == pytest.approx(1_439_900)
+
+
+def test_importacion_permte_tasa_manual():
+    configuracion = Configuracion(tasa_usd=4200, iva=19)
+    resultado = cotizacion_importacion(
+        CotizacionImportacionInput(
+            precio=1000,
+            flete=0,
+            moneda="USD",
+            peso=1,
+            ganancia_porcentaje=10,
+            iva_porcentaje=19,
+            flete_modo="fijo",
+            tasa_usd=5000,
+        ),
+        configuracion,
+    )
+
+    assert resultado.total_final == pytest.approx(6_545_000)
+
+
+def test_reparacion_permte_tasa_manual():
+    configuracion = Configuracion(tasa_usd=4200, iva=19)
+    resultado = cotizacion_reparacion(
+        CotizacionReparacionInput(
+            precio_base=100,
+            moneda="USD",
+            flete_reparacion=0,
+            ganancia_porcentaje=10,
+            iva_porcentaje=19,
+            peso=1,
+            flete_modo="fijo",
+            tasa_usd=5000,
+        ),
+        configuracion,
+    )
+
+    assert resultado.total_final == pytest.approx(654_500)
+
+
+def test_reparacion_acepta_moneda_eur_y_umbral_usd():
+    configuracion = Configuracion(
+        tasa_usd=4000,
+        tasa_eur=5000,
+        iva=19,
+        recargo_valor_alto=2_000_000,
+        recargo_peso=300_000,
+        umbral_usd=2000,
+        umbral_peso=5,
+    )
+    resultado = cotizacion_reparacion(
+        CotizacionReparacionInput(
+            precio_base=2000,
+            moneda="EUR",
+            flete_reparacion=0,
+            ganancia_porcentaje=10,
+            iva_porcentaje=19,
+            peso=6,
+            flete_modo="fijo",
+            tasa_usd=4000,
+            tasa_eur=5000,
+        ),
+        configuracion,
+    )
+
+    assert resultado.pasos[0].moneda == "EUR"
+    assert "Recargo por valor alto" in [paso.descripcion for paso in resultado.pasos]
+    assert "Recargo por peso" in [paso.descripcion for paso in resultado.pasos]
+
+
+def test_reparacion_acepta_moneda_cop():
+    configuracion = Configuracion(iva=19)
+    resultado = cotizacion_reparacion(
+        CotizacionReparacionInput(
+            precio_base=1_000_000,
+            moneda="COP",
+            flete_reparacion=0,
+            ganancia_porcentaje=10,
+            iva_porcentaje=19,
+            peso=1,
+            flete_modo="fijo",
+            tasa_usd=4000,
+        ),
+        configuracion,
+    )
+
+    assert resultado.pasos[0].moneda == "COP"
+    assert resultado.total_final == pytest.approx(1_309_000)
+
+
+def test_importacion_permite_iva_manual():
+    configuracion = Configuracion(iva=19)
+    resultado = cotizacion_importacion(
+        CotizacionImportacionInput(
+            precio=1000,
+            flete=0,
+            moneda="USD",
+            peso=1,
+            ganancia_porcentaje=10,
+            iva_porcentaje=10,
+            flete_modo="fijo",
+            tasa_usd=5000,
+        ),
+        configuracion,
+    )
+
+    assert resultado.total_final == pytest.approx(6_050_000)

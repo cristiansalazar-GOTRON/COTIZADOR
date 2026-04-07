@@ -50,7 +50,10 @@ class CotizacionImportacionInput:
     moneda: str
     peso: float
     ganancia_porcentaje: float
+    iva_porcentaje: float
     flete_modo: str = "fijo"
+    tasa_usd: float | None = None
+    tasa_eur: float | None = None
 
 
 @dataclass(slots=True)
@@ -58,16 +61,21 @@ class CotizacionLocalInput:
     precio_base_cop: float
     flete_local: float
     ganancia_porcentaje: float
+    iva_porcentaje: float
     flete_modo: str = "fijo"
 
 
 @dataclass(slots=True)
 class CotizacionReparacionInput:
-    precio_base_usd: float
+    precio_base: float
+    moneda: str
     flete_reparacion: float
     ganancia_porcentaje: float
+    iva_porcentaje: float
     peso: float
     flete_modo: str = "porcentaje"
+    tasa_usd: float | None = None
+    tasa_eur: float | None = None
 
 
 @dataclass(slots=True)
