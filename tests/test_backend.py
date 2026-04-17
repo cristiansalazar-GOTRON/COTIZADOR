@@ -427,3 +427,8 @@ def test_importacion_permite_iva_manual():
     )
 
     assert resultado.total_final == pytest.approx(6_050_000)
+
+
+def test_configuracion_por_defecto_usa_recargo_peso_de_dos_millones():
+    configuracion = Configuracion()
+    assert configuracion.recargo_peso == 2_000_000

@@ -35,7 +35,7 @@ class Configuracion:
     flete_reparacion: float = 8.0
     flete_reparacion_modo: str = "porcentaje"
     recargo_valor_alto: float = 2_000_000.0
-    recargo_peso: float = 350_000.0
+    recargo_peso: float = 2_000_000.0
     umbral_usd: float = 2000.0
     umbral_peso: float = 5.0
 

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFrame,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
     QMessageBox,
@@ -21,6 +23,34 @@ from .controller import CotizadorController
 from .forms.importacion_form import ImportacionForm
 from .forms.local_form import LocalForm
 from .forms.reparacion_form import ReparacionForm
+
+
+class GotronLogo(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(56, 56)
+
+    def paintEvent(self, event) -> None:
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        outer_pen = QPen(QColor("#7DD3FC"), 8)
+        outer_pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(outer_pen)
+        painter.drawArc(8, 8, 40, 40, 35 * 16, 280 * 16)
+
+        inner_pen = QPen(QColor("#1D4ED8"), 8)
+        inner_pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(inner_pen)
+        painter.drawArc(13, 13, 30, 30, 215 * 16, 270 * 16)
+
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#94A3B8"))
+        painter.drawEllipse(24, 24, 8, 8)
+
+        painter.setBrush(QColor("#38BDF8"))
+        painter.drawEllipse(38, 6, 6, 6)
 
 
 class MainWindow(QMainWindow):
@@ -76,6 +106,11 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(8)
 
+        branding_row = QHBoxLayout()
+        branding_row.setContentsMargins(0, 0, 0, 0)
+        branding_row.setSpacing(10)
+
+        logo = GotronLogo()
         brand = QLabel("Cotizador GOTRON")
         brand.setObjectName("BrandTitle")
         brand.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -83,6 +118,15 @@ class MainWindow(QMainWindow):
         tagline.setWordWrap(True)
         tagline.setObjectName("SidebarText")
         tagline.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        brand_block = QVBoxLayout()
+        brand_block.setContentsMargins(0, 0, 0, 0)
+        brand_block.setSpacing(2)
+        brand_block.addWidget(brand)
+        brand_block.addWidget(tagline)
+
+        branding_row.addWidget(logo, 0, Qt.AlignTop)
+        branding_row.addLayout(brand_block, 1)
 
         tipo_label = QLabel("Tipo de cotizacion")
         tipo_label.setObjectName("SidebarSection")
@@ -106,8 +150,7 @@ class MainWindow(QMainWindow):
         self.ultima_info.setMaximumHeight(42)
         self.ultima_info.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
-        layout.addWidget(brand)
-        layout.addWidget(tagline)
+        layout.addLayout(branding_row)
         layout.addWidget(tipo_label)
         layout.addWidget(self.tipo_selector)
         layout.addWidget(self.btn_nueva)

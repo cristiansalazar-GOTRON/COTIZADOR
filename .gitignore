@@ -3,3 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 data/ultima_cotizacion.json
+build/
+build_nuevo/
+dist/
+dist_nueva/
